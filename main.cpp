@@ -1,30 +1,28 @@
 // -------------------- ИМПОРТЫ И ОБЩИЕ СТРУКТУРЫ --------------------
-#include <iostream>
-#include <vector>
-#include <fstream>
-#include <sstream>
 #include <algorithm>
-#include <numeric>
+#include <chrono>
 #include <cmath>
 #include <ctime>
-#include <random>
-#include <chrono>
-#include <iterator>
+#include <fstream>
 #include <functional>
+#include <iostream>
+#include <iterator>
+#include <numeric>
+#include <random>
+#include <sstream>
+#include <vector>
 
 using namespace std;
 using namespace chrono;
 
-struct Instance
-{
+struct Instance {
     int capacity;
     vector<int> weights;
     vector<int> profits;
     vector<int> optimal;
 };
 
-Instance load_instance(const string &prefix)
-{
+Instance load_instance(const string &prefix) {
     Instance inst;
     ifstream fcap("data/" + prefix + "_c.txt");
     fcap >> inst.capacity;
@@ -41,32 +39,26 @@ Instance load_instance(const string &prefix)
     return inst;
 }
 
-int match(const vector<int> &sol, const vector<int> &opt)
-{
+int match(const vector<int> &sol, const vector<int> &opt) {
     int correct = 0;
     for (size_t i = 0; i < sol.size(); ++i)
-        if (sol[i] == opt[i])
-            ++correct;
+        if (sol[i] == opt[i]) ++correct;
     return static_cast<int>(100.0 * correct / sol.size());
 }
 
 // -------------------- 2-АППРОКСИМАЦИЯ --------------------
-vector<int> two_approx(const Instance &inst, int &total_weight, int &total_profit)
-{
+vector<int> two_approx(const Instance &inst, int &total_weight, int &total_profit) {
     int n = inst.weights.size();
     vector<pair<double, int>> ratio;
-    for (int i = 0; i < n; ++i)
-        ratio.emplace_back((double)inst.profits[i] / inst.weights[i], i);
+    for (int i = 0; i < n; ++i) ratio.emplace_back((double)inst.profits[i] / inst.weights[i], i);
     sort(ratio.rbegin(), ratio.rend());
 
     vector<int> taken(n, 0);
     total_weight = 0;
     total_profit = 0;
 
-    for (auto &[_, i] : ratio)
-    {
-        if (total_weight + inst.weights[i] <= inst.capacity)
-        {
+    for (auto &[_, i] : ratio) {
+        if (total_weight + inst.weights[i] <= inst.capacity) {
             taken[i] = 1;
             total_weight += inst.weights[i];
             total_profit += inst.profits[i];
@@ -76,14 +68,11 @@ vector<int> two_approx(const Instance &inst, int &total_weight, int &total_profi
 }
 
 // -------------------- ДИНАМИКА ПО ВЕСУ --------------------
-vector<int> dp_weights(const Instance &inst, int &total_weight, int &total_profit)
-{
+vector<int> dp_weights(const Instance &inst, int &total_weight, int &total_profit) {
     int n = inst.weights.size(), cap = inst.capacity;
     vector<vector<int>> dp(n + 1, vector<int>(cap + 1, 0));
-    for (int i = 1; i <= n; ++i)
-    {
-        for (int c = 0; c <= cap; ++c)
-        {
+    for (int i = 1; i <= n; ++i) {
+        for (int c = 0; c <= cap; ++c) {
             if (inst.weights[i - 1] <= c)
                 dp[i][c] = max(dp[i - 1][c], dp[i - 1][c - inst.weights[i - 1]] + inst.profits[i - 1]);
             else
@@ -92,19 +81,15 @@ vector<int> dp_weights(const Instance &inst, int &total_weight, int &total_profi
     }
     vector<int> taken(n, 0);
     int c = cap;
-    for (int i = n; i >= 1; --i)
-    {
-        if (dp[i][c] != dp[i - 1][c])
-        {
+    for (int i = n; i >= 1; --i) {
+        if (dp[i][c] != dp[i - 1][c]) {
             taken[i - 1] = 1;
             c -= inst.weights[i - 1];
         }
     }
     total_weight = total_profit = 0;
-    for (int i = 0; i < n; ++i)
-    {
-        if (taken[i])
-        {
+    for (int i = 0; i < n; ++i) {
+        if (taken[i]) {
             total_weight += inst.weights[i];
             total_profit += inst.profits[i];
         }
@@ -113,25 +98,20 @@ vector<int> dp_weights(const Instance &inst, int &total_weight, int &total_profi
 }
 
 // -------------------- FPTAS --------------------
-vector<int> fptas(const Instance &inst, int &total_weight, int &total_profit, double epsilon = 0.1)
-{
+vector<int> fptas(const Instance &inst, int &total_weight, int &total_profit, double epsilon = 0.1) {
     int n = inst.weights.size();
     double K = epsilon * (*max_element(inst.profits.begin(), inst.profits.end())) / n;
     vector<int> scaled(n);
-    for (int i = 0; i < n; ++i)
-        scaled[i] = (int)(inst.profits[i] / K);
+    for (int i = 0; i < n; ++i) scaled[i] = (int)(inst.profits[i] / K);
 
     int P = accumulate(scaled.begin(), scaled.end(), 0);
     vector<int> dp(P + 1, 1e9);
     vector<int> back(P + 1, -1);
     dp[0] = 0;
 
-    for (int i = 0; i < n; ++i)
-    {
-        for (int j = P; j >= scaled[i]; --j)
-        {
-            if (dp[j - scaled[i]] + inst.weights[i] < dp[j])
-            {
+    for (int i = 0; i < n; ++i) {
+        for (int j = P; j >= scaled[i]; --j) {
+            if (dp[j - scaled[i]] + inst.weights[i] < dp[j]) {
                 dp[j] = dp[j - scaled[i]] + inst.weights[i];
                 back[j] = i;
             }
@@ -139,23 +119,20 @@ vector<int> fptas(const Instance &inst, int &total_weight, int &total_profit, do
     }
     int best = 0;
     for (int j = P; j >= 0; --j)
-        if (dp[j] <= inst.capacity)
-        {
+        if (dp[j] <= inst.capacity) {
             best = j;
             break;
         }
 
     vector<int> taken(n, 0);
-    while (best > 0 && back[best] != -1)
-    {
+    while (best > 0 && back[best] != -1) {
         int i = back[best];
         taken[i] = 1;
         best -= scaled[i];
     }
     total_weight = total_profit = 0;
     for (int i = 0; i < n; ++i)
-        if (taken[i])
-        {
+        if (taken[i]) {
             total_weight += inst.weights[i];
             total_profit += inst.profits[i];
         }
@@ -163,10 +140,8 @@ vector<int> fptas(const Instance &inst, int &total_weight, int &total_profit, do
 }
 
 // -------------------- BRANCH AND BOUND (с начальной оценкой) --------------------
-vector<int> branch_and_bound(const Instance &inst, int &total_weight, int &total_profit)
-{
-    struct Node
-    {
+vector<int> branch_and_bound(const Instance &inst, int &total_weight, int &total_profit) {
+    struct Node {
         int level, profit, weight;
         double bound;
         vector<int> taken;
@@ -177,21 +152,17 @@ vector<int> branch_and_bound(const Instance &inst, int &total_weight, int &total
     vector<int> best(n, 0);
     total_profit = 0;
 
-    auto bound = [&](const Node &u)
-    {
-        if (u.weight >= inst.capacity)
-            return 0.0;
+    auto bound = [&](const Node &u) {
+        if (u.weight >= inst.capacity) return 0.0;
         double profit_bound = u.profit;
         int j = u.level;
         int totweight = u.weight;
-        while (j < n && totweight + inst.weights[j] <= inst.capacity)
-        {
+        while (j < n && totweight + inst.weights[j] <= inst.capacity) {
             totweight += inst.weights[j];
             profit_bound += inst.profits[j];
             j++;
         }
-        if (j < n)
-            profit_bound += (inst.capacity - totweight) * ((double)inst.profits[j] / inst.weights[j]);
+        if (j < n) profit_bound += (inst.capacity - totweight) * ((double)inst.profits[j] / inst.weights[j]);
         return profit_bound;
     };
 
@@ -204,14 +175,12 @@ vector<int> branch_and_bound(const Instance &inst, int &total_weight, int &total
     v.bound = bound(v);
     q.push_back(v);
 
-    while (!q.empty())
-    {
+    while (!q.empty()) {
         pop_heap(q.begin(), q.end());
         v = q.back();
         q.pop_back();
 
-        if (v.bound <= total_profit || v.level >= n)
-            continue;
+        if (v.bound <= total_profit || v.level >= n) continue;
 
         u.level = v.level + 1;
         u.weight = v.weight + inst.weights[v.level];
@@ -219,15 +188,13 @@ vector<int> branch_and_bound(const Instance &inst, int &total_weight, int &total
         u.taken = v.taken;
         u.taken[v.level] = 1;
 
-        if (u.weight <= inst.capacity && u.profit > total_profit)
-        {
+        if (u.weight <= inst.capacity && u.profit > total_profit) {
             total_profit = u.profit;
             best = u.taken;
         }
 
         u.bound = bound(u);
-        if (u.bound > total_profit)
-        {
+        if (u.bound > total_profit) {
             q.push_back(u);
             push_heap(q.begin(), q.end());
         }
@@ -238,8 +205,7 @@ vector<int> branch_and_bound(const Instance &inst, int &total_weight, int &total
         u.taken[v.level] = 0;
         u.bound = bound(u);
 
-        if (u.bound > total_profit)
-        {
+        if (u.bound > total_profit) {
             q.push_back(u);
             push_heap(q.begin(), q.end());
         }
@@ -247,15 +213,13 @@ vector<int> branch_and_bound(const Instance &inst, int &total_weight, int &total
 
     total_weight = 0;
     for (int i = 0; i < n; ++i)
-        if (best[i])
-            total_weight += inst.weights[i];
+        if (best[i]) total_weight += inst.weights[i];
 
     return best;
 }
 
 // -------------------- ГЕНЕТИЧЕСКИЙ АЛГОРИТМ --------------------
-vector<int> genetic_algorithm(const Instance &inst, int &total_weight, int &total_profit)
-{
+vector<int> genetic_algorithm(const Instance &inst, int &total_weight, int &total_profit) {
     int n = inst.weights.size();
     int population_size = 100, generations = 500;
     double crossover_prob = 0.8, mutation_prob = 0.02;
@@ -265,15 +229,12 @@ vector<int> genetic_algorithm(const Instance &inst, int &total_weight, int &tota
 
     vector<vector<int>> population(population_size, vector<int>(n));
     for (auto &ind : population)
-        for (int &gene : ind)
-            gene = bit(rng);
+        for (int &gene : ind) gene = bit(rng);
 
-    auto fitness = [&](const vector<int> &ind)
-    {
+    auto fitness = [&](const vector<int> &ind) {
         int w = 0, p = 0;
         for (int i = 0; i < n; ++i)
-            if (ind[i])
-            {
+            if (ind[i]) {
                 w += inst.weights[i];
                 p += inst.profits[i];
             }
@@ -283,67 +244,52 @@ vector<int> genetic_algorithm(const Instance &inst, int &total_weight, int &tota
     vector<int> best_ind(n);
     int best_fit = 0;
 
-    for (int gen = 0; gen < generations; ++gen)
-    {
+    for (int gen = 0; gen < generations; ++gen) {
         vector<pair<int, vector<int>>> fits;
-        for (auto &ind : population)
-            fits.emplace_back(fitness(ind), ind);
+        for (auto &ind : population) fits.emplace_back(fitness(ind), ind);
         sort(fits.rbegin(), fits.rend());
 
-        if (fits[0].first > best_fit)
-        {
+        if (fits[0].first > best_fit) {
             best_fit = fits[0].first;
             best_ind = fits[0].second;
         }
 
         vector<vector<int>> new_pop;
-        while (new_pop.size() < population_size)
-        {
+        while (new_pop.size() < population_size) {
             const vector<int> &p1 = fits[rand() % 50].second;
             const vector<int> &p2 = fits[rand() % 50].second;
             vector<int> c1 = p1, c2 = p2;
-            if (prob(rng) < crossover_prob)
-            {
+            if (prob(rng) < crossover_prob) {
                 int point = rand() % n;
-                for (int i = point; i < n; ++i)
-                    swap(c1[i], c2[i]);
+                for (int i = point; i < n; ++i) swap(c1[i], c2[i]);
             }
             for (int i = 0; i < n; ++i)
-                if (prob(rng) < mutation_prob)
-                    c1[i] = 1 - c1[i];
+                if (prob(rng) < mutation_prob) c1[i] = 1 - c1[i];
             for (int i = 0; i < n; ++i)
-                if (prob(rng) < mutation_prob)
-                    c2[i] = 1 - c2[i];
+                if (prob(rng) < mutation_prob) c2[i] = 1 - c2[i];
             new_pop.push_back(c1);
-            if (new_pop.size() < population_size)
-                new_pop.push_back(c2);
+            if (new_pop.size() < population_size) new_pop.push_back(c2);
         }
         population = move(new_pop);
     }
 
     total_weight = total_profit = 0;
     for (int i = 0; i < n; ++i)
-        if (best_ind[i])
-        {
+        if (best_ind[i]) {
             total_weight += inst.weights[i];
             total_profit += inst.profits[i];
         }
     return best_ind;
 }
 
-vector<int> fptas_wrapper(const Instance& inst, int& w, int& p) {
-    return fptas(inst, w, p, 0.1);
-}
-
+vector<int> fptas_wrapper(const Instance &inst, int &w, int &p) { return fptas(inst, w, p, 0.1); }
 
 // -------------------- MAIN И CSV ВЫВОД --------------------
-int main()
-{
+int main() {
     ofstream fout("results.csv");
     fout << "Dataset,Algorithm,Time,Profit,Weight,Match (%)\n";
 
-    for (int i = 1; i <= 8; ++i)
-    {
+    for (int i = 1; i <= 8; ++i) {
         string name = "p0" + to_string(i);
         Instance inst = load_instance(name);
 
@@ -355,8 +301,7 @@ int main()
         methods.emplace_back("BnB", branch_and_bound);
         methods.emplace_back("GA", genetic_algorithm);
 
-        for (auto &[label, func] : methods)
-        {
+        for (auto &[label, func] : methods) {
             int w = 0, p = 0;
             auto start = high_resolution_clock::now();
             vector<int> sol = func(inst, w, p);
