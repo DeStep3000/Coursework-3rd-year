@@ -24,16 +24,17 @@ struct Instance {
 
 Instance load_instance(const string &prefix) {
     Instance inst;
-    ifstream fcap("data/" + prefix + "_c.txt");
+    string data_path = "src/data/" + prefix;
+    ifstream fcap(data_path + "_c.txt");
     fcap >> inst.capacity;
 
-    ifstream fw("data/" + prefix + "_w.txt");
+    ifstream fw(data_path + "_w.txt");
     inst.weights = vector<int>(istream_iterator<int>(fw), {});
 
-    ifstream fp("data/" + prefix + "_p.txt");
+    ifstream fp(data_path + "_p.txt");
     inst.profits = vector<int>(istream_iterator<int>(fp), {});
 
-    ifstream fs("data/" + prefix + "_s.txt");
+    ifstream fs(data_path + "_s.txt");
     inst.optimal = vector<int>(istream_iterator<int>(fs), {});
 
     return inst;
@@ -286,7 +287,7 @@ vector<int> fptas_wrapper(const Instance &inst, int &w, int &p) { return fptas(i
 
 // -------------------- MAIN И CSV ВЫВОД --------------------
 int main() {
-    ofstream fout("results.csv");
+    ofstream fout("src/results.csv");
     fout << "Dataset,Algorithm,Time,Profit,Weight,Match (%)\n";
 
     for (int i = 1; i <= 8; ++i) {
