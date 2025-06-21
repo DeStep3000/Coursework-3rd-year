@@ -288,7 +288,7 @@ vector<int> fptas_wrapper(const Instance &inst, int &w, int &p) { return fptas(i
 // -------------------- MAIN И CSV ВЫВОД --------------------
 int main() {
     ofstream fout("src/results.csv");
-    fout << "Dataset,Algorithm,Time,Profit,Weight,Match (%)\n";
+    fout << "Dataset,Algorithm,Time(us),Profit,Weight,Match (%)\n";
 
     for (int i = 1; i <= 8; ++i) {
         string name = "p0" + to_string(i);
@@ -307,7 +307,7 @@ int main() {
             auto start = high_resolution_clock::now();
             vector<int> sol = func(inst, w, p);
             auto end = high_resolution_clock::now();
-            double time = duration<double>(end - start).count();
+            double time = duration_cast<microseconds>(end - start).count();
             int acc = match(sol, inst.optimal);
             fout << name << "," << label << "," << time << "," << p << "," << w << "," << acc << "\n";
         }
